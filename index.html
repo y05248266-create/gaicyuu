@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>害虫バスターズ！〜作物を防除せよ〜</title>
+    <style>
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body { margin: 0; padding: 0 0 30px 0; background-color: #064e3b; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; text-align: center; user-select: none; -webkit-user-select: none; overflow-x: hidden; }
+        #ui { position: fixed; top: 5px; left: 50%; transform: translateX(-50%); background: rgba(6, 78, 59, 0.95); padding: 8px 15px; border-radius: 8px; z-index: 100; border: 2px solid #34d399; width: 95%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; }
+        .ui-item { font-size: 13px; font-weight: bold; }
+        #target-msg { color: #f1c40f; font-size: 13px; font-weight: bold; }
+        #score { color: #4ade80; font-size: 18px; }
+        #timer-display { color: #34d399; font-size: 16px; }
+        #game-container { width: 800px; margin: 60px auto 10px; position: relative; }
+        #game-stage { position: relative; width: 800px; height: 380px; background: linear-gradient(to bottom, #14532d 0%, #064e3b 100%); border: 4px solid #10b981; border-radius: 10px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
+        #controls-guide { position: absolute; top: 10px; right: 12px; background: rgba(0, 0, 0, 0.75); border: 1px solid #34d399; padding: 4px 10px; border-radius: 6px; font-size: 11px; color: #34d399; z-index: 20; pointer-events: none; }
+        #game-stage::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(#15803d 10%, transparent 11%), radial-gradient(#15803d 10%, transparent 11%); background-size: 30px 30px; background-position: 0 0, 15px 15px; opacity: 0.3; pointer-events: none; }
+        #ground { position: absolute; bottom: 0; left: 0; width: 100%; height: 40px; background: repeating-linear-gradient(90deg, #78350f, #78350f 120px, #451a03 120px, #451a03 122px); border-top: 5px solid #a16207; z-index: 2; }
+        .network-icon { position: absolute; font-size: 20px; bottom: 45px; opacity: 0.3; }
+        #start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(6, 78, 59, 0.95); z-index: 150; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 15px; }
+        .diff-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0; }
+        .diff-btn { padding: 8px 14px; font-size: 14px; font-weight: bold; color: #fff; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.1s; }
+        .diff-btn:active { transform: scale(0.95); }
+        .btn-easy { background: #22c55e; }
+        .btn-normal { background: #3b82f6; }
+        .btn-hard { background: #f97316; }
+        .btn-oni { background: #ef4444; border: 1px solid #fca5a5; }
+        .btn-kami { background: linear-gradient(135deg, #a855f7, #eab308); border: 1px solid #fff; color: #fff; text-shadow: 0 0 4px #000; }
+        #ranking-box { background: rgba(255,255,255,0.08); border: 1px solid #059669; padding: 8px 20px; border-radius: 6px; font-size: 13px; text-align: left; margin-top: 5px; }
+        #ranking-box h4 { margin: 0 0 5px 0; color: #f1c40f; text-align: center; }
+        #player, .entity, .block { position: absolute; top: 0; left: 0; will-change: transform; }
+        #player { width: 32px; height: 36px; font-size: 30px; line-height: 36px; z-index: 10; }
+        .entity { padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; white-space: nowrap; box-shadow: 2px 2px 5px rgba(0,0,0,0.4); z-index: 5; display: inline-block; }
+        .good { background: #16a34a; color: #fff; border: 2px solid #4ade80; }
+        .bad { background: #dc2626; color: #fff; border: 2px solid #fca5a5; }
+        .block { width: 45px; height: 40px; border-radius: 6px; font-weight: bold; font-size: 20px; line-height: 34px; text-align: center; box-sizing: border-box; box-shadow: 2px 2px 4px rgba(0,0,0,0.4); z-index: 4; background: #854d0e; border: 3px solid #ca8a04; color: #ffffff; }
+        #touch-controls { width: 800px; margin: 10px auto 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .touch-btn-group { display: flex; gap: 15px; }
+        .touch-btn { width: 75px; height: 60px; background: rgba(255, 255, 255, 0.15); border: 2px solid #34d399; border-radius: 10px; color: #fff; font-size: 20px; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none; }
+        .touch-btn:active { background: rgba(52, 211, 153, 0.4); }
+        .btn-jump-touch { width: 140px; background: rgba(34, 197, 94, 0.3); border-color: #4ade80; }
+        #modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(6, 78, 59, 0.95); z-index: 200; box-sizing: border-box; padding: 15px; flex-direction: column; justify-content: center; align-items: center; }
+        #modal-title { font-size: 20px; margin-bottom: 5px; font-weight: bold; }
+        #modal-rank-badge { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #000; font-weight: bold; font-size: 15px; padding: 5px 14px; border-radius: 20px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(241, 196, 15, 0.4); }
+        #hit-object-display { margin: 6px 0 10px 0; padding: 6px 14px; border-radius: 8px; font-size: 13.5px; font-weight: bold; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+        .hit-bad-badge { background: #dc2626; color: #fff; border: 2px solid #fca5a5; }
+        .hit-clear-badge { background: #16a34a; color: #fff; border: 2px solid #4ade80; }
+        #modal-desc { background: #065f46; padding: 12px; border-radius: 8px; border: 1px solid #047857; text-align: left; max-width: 620px; line-height: 1.5; font-size: 13px; max-height: 180px; overflow-y: auto; }
+        #retry-btn { margin-top: 12px; padding: 10px 25px; background: #22c55e; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        #object-guide-section, #learning-section, #rank-list-section { width: 800px; margin: 15px auto 0; background: #065f46; border-radius: 10px; padding: 15px; box-sizing: border-box; text-align: left; }
+        #object-guide-section { border: 2px solid #4ade80; }
+        #object-guide-section h3 { color: #4ade80; border-bottom: 2px solid #4ade80; padding-bottom: 4px; margin-top: 0; font-size: 16px; }
+        .guide-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .guide-card { background: #064e3b; padding: 10px; border-radius: 6px; }
+        .guide-card h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .guide-card p { margin: 0; font-size: 11.5px; color: #ecfdf5; line-height: 1.4; }
+        #learning-section { border: 2px solid #34d399; }
+        #learning-section h3 { color: #34d399; border-bottom: 2px solid #34d399; padding-bottom: 4px; margin-top: 0; font-size: 16px; }
+        .section-title { font-weight: bold; color: #f1c40f; margin: 10px 0 6px 0; font-size: 14px; border-left: 4px solid #f1c40f; padding-left: 6px; }
+        .knowledge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .card { background: #064e3b; padding: 10px; border-radius: 6px; border-left: 4px solid #fff; }
+        .card.bad-card { border-left-color: #ef4444; }
+        .card.info-card { border-left-color: #3b82f6; }
+        .card h4 { margin: 0 0 4px 0; font-size: 13px; color: #fff; }
+        .card p { margin: 0; font-size: 11.5px; color: #ecfdf5; line-height: 1.4; }
+        #rank-list-section { border: 2px solid #f1c40f; }
+        #rank-list-section h3 { color: #f1c40f; border-bottom: 2px solid #f1c40f; padding-bottom: 4px; margin-top: 0; font-size: 16px; }
+        .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .rank-card { background: #064e3b; padding: 10px; border-radius: 6px; border-left: 4px solid #f1c40f; }
+        .rank-card h4 { margin: 0 0 4px 0; font-size: 13.5px; color: #fff; }
+        .rank-card p { margin: 0; font-size: 11.5px; color: #ecfdf5; line-height: 1.4; }
+        @media (max-width: 820px) {
+            #game-container, #game-stage, #touch-controls, #object-guide-section, #rank-list-section, #learning-section { width: 96vw; }
+            #game-stage { height: 320px; }
+            .guide-grid, .rank-grid, .knowledge-grid { grid-template-columns: 1fr; }
+            .ui-item { font-size: 11px; }
+            #modal-desc { max-height: 140px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="ui-item">🧑‍🌾 害虫バスターズ</div>
+        <div class="ui-item" id="target-msg">⏳ 30秒間、作物を害虫から守れ！</div>
+        <div class="ui-item">スコア: <span id="score">0</span> 点</div>
+        <div class="ui-item">タイム: <span id="timer-display">00:00</span></div>
+        <div class="ui-item" id="rank-display" style="color:#f1c40f;">モード選択中</div>
+    </div>
+
+    <div id="game-container">
+        <div id="game-stage">
+            <div id="controls-guide">💻 [←][→] / [A][D] : 移動 | [Space] / [W] : ジャンプ | [P] / [Esc] : ポーズ</div>
+            <div class="network-icon" style="left: 150px;">🌽</div>
+            <div class="network-icon" style="left: 450px;">🍅</div>
+            <div class="network-icon" style="left: 700px;">🍆</div>
+
+            <div id="start-screen">
+                <h2 style="color:#34d399; margin:0 0 5px 0;">🌾 害虫の脅威から作物を守れ！ 🌾</h2>
+                <p style="color:#f1c40f; font-size:15px; font-weight:bold; margin:0 0 8px 0;">【目標】30秒間耐え抜いて作物を収穫しよう！</p>
+                <div class="diff-container">
+                    <button class="diff-btn btn-easy" onclick="startGame('easy')">🌱 かんたん</button>
+                    <button class="diff-btn btn-normal" onclick="startGame('normal')">⚡ ふつう</button>
+                    <button class="diff-btn btn-hard" onclick="startGame('hard')">🔥 むずかしい</button>
+                    <button class="diff-btn btn-oni" onclick="startGame('oni')">👹 大発生モード</button>
+                    <button class="diff-btn btn-kami" onclick="startGame('kami')">⚡ 伝説の農家</button>
+                </div>
+                <div id="ranking-box">
+                    <h4>🏆 端末内 ハイスコア TOP3</h4>
+                    <div id="ranking-list">記録なし</div>
+                </div>
+            </div>
+
+            <div id="player">🧑‍🌾</div>
+            <div id="ground"></div>
+
+            <div id="modal-overlay">
+                <div id="modal-title">⚠️ 食害発生（ゲームオーバー）</div>
+                <div id="modal-rank-badge">称号: 新米農家</div>
+                <div id="hit-object-display">💥 発生した被害: ---</div>
+                <div id="modal-desc"><span id="modal-detail">解説文がここに入ります。</span></div>
+                <button id="retry-btn" onclick="resetGame()">🔄 もう一度挑戦する</button>
+            </div>
+        </div>
+
+        <div id="touch-controls">
+            <div class="touch-btn-group">
+                <div class="touch-btn" id="btn-left">⬅️</div>
+                <div class="touch-btn" id="btn-right">➡️</div>
+            </div>
+            <div class="touch-btn" id="btn-pause" onclick="togglePause()">⏸️️ ポーズ</div>
+            <div class="touch-btn touch-btn-group btn-jump-touch" id="btn-jump">🛈 JUMP</div>
+        </div>
+    </div>
+
+    <div id="object-guide-section">
+        <h3>📦 登場するブロック＆アイテムの解説・役割</h3>
+        <div class="guide-grid">
+            <div class="guide-card" style="border-left: 4px solid #854d0e;">
+                <h4 style="color:#facc15;">🧱 高畝（たかうね）ブロック</h4>
+                <p><strong>【中身と構造】</strong>水はけや通気性を良くし、病害虫を防ぐ土の盛り上がりです。<br>
+                <strong>【ゲームでの役割】</strong>地表を這う害虫から<strong>飛び乗って安全に回避できる足場</strong>です。</p>
+            </div>
+            <div class="guide-card" style="border-left: 4px solid #ef4444;">
+                <h4 style="color:#ef4444;">🚨 赤色の文字（農作物の害虫）</h4>
+                <p><strong>【危険の正体】</strong>アブラムシ、ハダニ、ヨトウムシ、カイガラムシなど。<br>
+                <strong>【ゲームでの役割】</strong>接触すると食害発生でゲームオーバー！高畝上へ退避するかジャンプで回避しましょう。</p>
+            </div>
+            <div class="guide-card" style="border-left: 4px solid #22c55e;">
+                <h4 style="color:#22c55e;">🟢 緑色の文字（適切な害虫防除技術）</h4>
+                <p><strong>【防除対策の正体】</strong>防虫ネット、天敵（テントウムシ）、コンパニオンプランツ、粘着シートなど。<br>
+                <strong>【ゲームでの役割】</strong>接触して取得することで<strong>+30点</strong>のボーナススコアが入ります。</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="learning-section">
+        <h3>📘 技術科（生物育成）：害虫とその防除技術について理解しよう</h3>
+        <div class="section-title">１．代表的な害虫とその被害</div>
+        <div class="knowledge-grid">
+            <div class="card bad-card">
+                <h4>🐛 アブラムシ・ハダニ</h4>
+                <p><strong>被害:</strong> 植物の汁を吸って株を弱らせる。ウイルス病を媒介することも。<br><strong>特徴:</strong> 繁殖力が非常に強く、葉の裏などに集団で発生する。</p>
+            </div>
+            <div class="card bad-card">
+                <h4>🐛 ヨトウムシ・カイガラムシ</h4>
+                <p><strong>被害:</strong> 葉や茎を激しく食害したり、すす病を誘発したりする。<br><strong>対策:</strong> 早期発見による捕殺や、適切な物理的防除が有効。</p>
+            </div>
+            <div class="card info-card">
+                <h4>🛡️ 物理的防除（ネット・シート）</h4>
+                <p><strong>防虫ネット:</strong> 害虫の侵入を遮断する基本対策。<br><strong>黄色粘着シート:</strong> 害虫が集まる色を利用して捕獲する。</p>
+            </div>
+            <div class="card info-card">
+                <h4>🐞 生物的防除・耕種的防除</h4>
+                <p><strong>天敵の利用:</strong> テントウムシ等でアブラムシを退治。<br><strong>混作:</strong> 害虫を遠ざけるコンパニオンプランツを一緒に植える。</p>
+            </div>
+        </div>
+        <div class="section-title">２．安全・安心な野菜作りと防除の考え方</div>
+        <div class="knowledge-grid">
+            <div class="card bad-card">
+                <h4>⚠️ 薬剤だけに頼る危険性</h4>
+                <p>農薬の過剰使用は薬剤抵抗性を持った害虫を生む原因に。<br>多様な防除方法を組み合わせる「総合的病害虫管理(IPM)」が重要。</p>
+            </div>
+            <div class="card info-card">
+                <h4>🌱 健全な生育環境づくり</h4>
+                <p>風通しや日当たりの改善（整枝・摘葉）、水はけの良い高畝づくりが、害虫や病気の予防に直結する。</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="rank-list-section">
+        <h3>🏆 獲得できる称号一覧</h3>
+        <div class="rank-grid">
+            <div class="rank-card">
+                <h4>👑 マイスター農家（750点〜）</h4>
+                <p>大発生する害虫を的確に見極め、完璧な防除で作物を守り抜いた最高の育成技術者！</p>
+            </div>
+            <div class="rank-card">
+                <h4>🌟 IPM防除スペシャリスト（500点〜740点）</h4>
+                <p>物理・生物・耕種的防除を駆使し、無駄なく害虫を退けた超熟練農家！</p>
+            </div>
+            <div class="rank-card">
+                <h4>🥦 有機栽培マスター（300点〜490点）</h4>
+                <p>高難易度でも冷静に害虫を回避し、安全な作物をたくさん収穫できた熟練者！</p>
+            </div>
+            <div class="rank-card">
+                <h4>🧱 畝作り名人（150点〜290点）</h4>
+                <p>高畝ブロックを上手に活用し、地表の害虫被害を効率よく回避できる中級農家！</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) audioCtx = new AudioCtx();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSE(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                if (type === 'jump') {
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(450, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'good') {
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'bad') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.linearRampToValueAtTime(70, now + 0.3);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) {}
+        }
+
+        const playerEl = document.getElementById('player');
+        const stage = document.getElementById('game-stage');
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer-display');
+        const rankDisplay = document.getElementById('rank-display');
+        const modal = document.getElementById('modal-overlay');
+        const modalRankBadge = document.getElementById('modal-rank-badge');
+        const hitObjectDisplay = document.getElementById('hit-object-display');
+        const startScreen = document.getElementById('start-screen');
+
+        let score = 0;
+        let isGameOver = false;
+        let isGameStarted = false;
+        let isPaused = false;
+
+        let elapsedSeconds = 0;
+        let timerInterval = null;
+        let spawnEntityTimeout = null;
+        let spawnBlockTimeout = null;
+
+        let currentDifficulty = 'normal';
+        let scrollSpeed = 3.8;
+        let spawnDelayEntity = { min: 800, max: 1600 };
+        let spawnDelayBlock = { min: 1000, max: 2200 };
+
+        const player = { x: 80, y: 40, w: 24, h: 32, vx: 0, vy: 0, isGrounded: false, facingRight: true };
+
+        const GRAVITY = 0.85;
+        const JUMP_POWER = 18.5;
+        const MOVE_SPEED = 5.8;
+
+        const badDatabase = [
+            { title: "🐛 アブラムシの発生！", detail: "【被害】汁を吸って作物を弱らせ、ウイルス病を伝染させます。\n【対策】防虫ネットや天敵（テントウムシ）の利用、銀色マルチで飛来を防ぎましょう。" },
+            { title: "🕷️ ハダニの大発生！", detail: "【被害】葉の裏から吸汁し、葉を白っぽく枯らしてしまいます。\n【対策】乾燥すると増えるため、葉裏への水やり（葉水）や特定天敵が有効です。" },
+            { title: "🐛 ヨトウムシの食害！", detail: "【被害】夜間に葉や実を猛烈な勢いで食べてボロボロにします。\n【対策】昼間は土の中に隠れるため、土の耕起や手作業での捕殺が基本です。" },
+            { title: "🐌 ナメクジの食害！", detail: "【被害】柔らかい新芽や果実を夜間に食害します。\n【対策】ビールトラップや高畝づくりで排水性を高め、湿気を防ぎましょう。" },
+            { title: "🪲 カイガラムシの寄生！", detail: "【被害】茎や葉にへばりついて吸汁し、排泄物から『すす病』を発生させます。\n【対策】幼虫のうちに対策するか、ブラシ等で物理的に削り落とします。" }
+        ];
+
+        const poolGood = [
+            "🕸️ 防虫ネット設置",
+            "🐞 天敵テントウムシ導入",
+            "🌿 コンパニオンプランツ混作",
+            "🟡 黄色粘着シート設置",
+            "✂️ 風通しを良くする剪定",
+            "✨ 銀色マルチシート敷設"
+        ];
+
+        let entities = [];
+        let blocks = [];
+        const keys = {};
+
+        displayRanking();
+
+        function displayRanking() {
+            const ranking = JSON.parse(localStorage.getItem('pest_buster_ranking') || '[]');
+            const listEl = document.getElementById('ranking-list');
+            if (ranking.length === 0) {
+                listEl.innerHTML = "まだ記録がありません。一番乗りを目指そう！";
+                return;
+            }
+            listEl.innerHTML = ranking.map((r, i) => `<b>${i+1}位:</b> ${r.score}点 (${r.diff} / 生存 ${r.time})`).join('<br>');
+        }
+
+        function saveScore(finalScore, timeStr, diffName) {
+            let ranking = JSON.parse(localStorage.getItem('pest_buster_ranking') || '[]');
+            ranking.push({ score: finalScore, time: timeStr, diff: diffName });
+            ranking.sort((a, b) => b.score - a.score);
+            ranking = ranking.slice(0, 3);
+            localStorage.setItem('pest_buster_ranking', JSON.stringify(ranking));
+            displayRanking();
+        }
+
+        function getRankTitle(s) {
+            if (s >= 750) return "👑 マイスター農家";
+            if (s >= 500) return "🌟 IPM防除スペシャリスト";
+            if (s >= 300) return "🥦 有機栽培マスター";
+            if (s >= 150) return "🧱 畝作り名人";
+            if (s >= 70) return "🥕 駆け出し農家";
+            return "🌱 新米農家";
+        }
+
+        function updateRank() {
+            const rankTitle = getRankTitle(score);
+            const diffNames = { easy: "🌱かんたん", normal: "⚡ふつう", hard: "🔥むずかしい", oni: "👹大発生", kami: "⚡伝説の農家" };
+            rankDisplay.innerText = `${diffNames[currentDifficulty]} | ${rankTitle}`;
+        }
+
+        function updateTimerUI() {
+            const minutes = Math.floor(elapsedSeconds / 60);
+            const seconds = elapsedSeconds % 60;
+            timerDisplay.innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function togglePause() {
+            if (!isGameStarted || isGameOver) return;
+            initAudio();
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('btn-pause');
+            if (pauseBtn) {
+                pauseBtn.innerText = isPaused ? "▶️ 再開" : "⏸️ ポーズ";
+            }
+            if (!isPaused) {
+                requestAnimationFrame(update);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            initAudio();
+            if (e.code === 'KeyP' || e.code === 'Escape') {
+                togglePause();
+                return;
+            }
+            keys[e.code] = true;
+            if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        const setupTouchBtn = (id, code) => {
+            const btn = document.getElementById(id);
+            if(!btn) return;
+            const startPress = (e) => { e.preventDefault(); initAudio(); keys[code] = true; };
+            const endPress = (e) => { e.preventDefault(); keys[code] = false; };
+            btn.addEventListener('touchstart', startPress, { passive: false });
+            btn.addEventListener('touchend', endPress, { passive: false });
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('mouseup', endPress);
+            btn.addEventListener('mouseleave', endPress);
+        };
+        setupTouchBtn('btn-left', 'ArrowLeft');
+        setupTouchBtn('btn-right', 'ArrowRight');
+        setupTouchBtn('btn-jump', 'Space');
+
+        function startGame(diff) {
+            initAudio();
+            currentDifficulty = diff;
+            startScreen.style.display = 'none';
+            modal.style.display = 'none';
+            isGameStarted = true;
+            isGameOver = false;
+            isPaused = false;
+            
+            const pauseBtn = document.getElementById('btn-pause');
+            if (pauseBtn) pauseBtn.innerText = "⏸️ ポーズ";
+
+            if (diff === 'easy') {
+                scrollSpeed = 2.8; spawnDelayEntity = { min: 1000, max: 2000 }; spawnDelayBlock = { min: 1200, max: 2400 };
+            } else if (diff === 'normal') {
+                scrollSpeed = 3.8; spawnDelayEntity = { min: 700, max: 1500 }; spawnDelayBlock = { min: 900, max: 1800 };
+            } else if (diff === 'hard') {
+                scrollSpeed = 5.0; spawnDelayEntity = { min: 450, max: 900 }; spawnDelayBlock = { min: 600, max: 1200 };
+            } else if (diff === 'oni') {
+                scrollSpeed = 5.5; spawnDelayEntity = { min: 400, max: 700 }; spawnDelayBlock = { min: 600, max: 1000 };
+            } else if (diff === 'kami') {
+                scrollSpeed = 6.8; spawnDelayEntity = { min: 200, max: 450 }; spawnDelayBlock = { min: 400, max: 800 };
+            }
+
+            updateRank();
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (isGameOver || isPaused) return;
+                elapsedSeconds++;
+                updateTimerUI();
+                if (elapsedSeconds >= 30) triggerGameClear();
+            }, 1000);
+
+            spawnEntity();
+            spawnBlockGroup();
+            requestAnimationFrame(update);
+        }
+
+        function resetGame() {
+            clearAllTimers();
+            entities.forEach(e => e.element.remove());
+            blocks.forEach(b => b.element.remove());
+            entities = [];
+            blocks = [];
+
+            score = 0;
+            elapsedSeconds = 0;
+            scoreDisplay.innerText = '0';
+            updateTimerUI();
+
+            player.x = 80;
+            player.y = 40;
+            player.vx = 0;
+            player.vy = 0;
+            player.isGrounded = false;
+            player.facingRight = true;
+            renderPosition({ ...player, element: playerEl }, true);
+
+            modal.style.display = 'none';
+            startScreen.style.display = 'flex';
+            isGameStarted = false;
+            isGameOver = false;
+            isPaused = false;
+            rankDisplay.innerText = "モード選択中";
+        }
+
+        function isSpaceOccupied(spawnX, margin = 40) {
+            for (let b of blocks) { if (Math.abs(b.x - spawnX) < margin) return true; }
+            for (let e of entities) { if (Math.abs(e.x - spawnX) < margin) return true; }
+            return false;
+        }
+
+        function createSingleBlock(posX, posY) {
+            const el = document.createElement('div');
+            el.className = 'block';
+            el.innerText = '🧱';
+            stage.appendChild(el);
+            const blockObj = { element: el, x: posX, y: posY, w: 45, h: 40 };
+            renderPosition(blockObj);
+            blocks.push(blockObj);
+        }
+
+        function spawnEntity() {
+            if (isGameOver || !isGameStarted) return;
+            if (!isPaused) {
+                const spawnX = 800;
+                if (!isSpaceOccupied(spawnX, 30)) {
+                    const badProbability = (currentDifficulty === 'kami' || currentDifficulty === 'oni') ? 0.75 : (currentDifficulty === 'hard' ? 0.55 : (currentDifficulty === 'normal' ? 0.40 : 0.30));
+                    const isBad = Math.random() < badProbability;
+                    const badData = badDatabase[Math.floor(Math.random() * badDatabase.length)];
+                    const text = isBad ? badData.title.split("！")[0] : poolGood[Math.floor(Math.random() * poolGood.length)];
+
+                    const el = document.createElement('div');
+                    el.className = `entity ${isBad ? 'bad' : 'good'}`;
+                    el.innerText = text;
+                    stage.appendChild(el);
+
+                    const realWidth = el.offsetWidth || 140;
+                    let spawnY = 42; 
+                    if (Math.random() > 0.40) spawnY = Math.random() < 0.5 ? 150 : 235;
+
+                    const entityObj = { element: el, x: spawnX, y: spawnY, w: realWidth, h: 26, isBad: isBad, textName: text, detail: isBad ? badData.detail : "" };
+                    renderPosition(entityObj);
+                    entities.push(entityObj);
+                }
+            }
+            const nextDelay = Math.random() * (spawnDelayEntity.max - spawnDelayEntity.min) + spawnDelayEntity.min;
+            spawnEntityTimeout = setTimeout(spawnEntity, nextDelay);
+        }
+
+        function spawnBlockGroup() {
+            if (isGameOver || !isGameStarted) return;
+            if (!isPaused) {
+                const startX = 800;
+                if (!isSpaceOccupied(startX, 50)) {
+                    const count = Math.floor(Math.random() * 3) + 3;
+                    const blockY = Math.random() < 0.6 ? 110 : 190;
+                    for (let i = 0; i < count; i++) createSingleBlock(startX + (i * 45), blockY);
+                }
+            }
+            const nextDelay = Math.random() * (spawnDelayBlock.max - spawnDelayBlock.min) + spawnDelayBlock.min;
+            spawnBlockTimeout = setTimeout(spawnBlockGroup, nextDelay);
+        }
+
+        function clearAllTimers() {
+            if (timerInterval) clearInterval(timerInterval);
+            if (spawnEntityTimeout) clearTimeout(spawnEntityTimeout);
+            if (spawnBlockTimeout) clearTimeout(spawnBlockTimeout);
+        }
+
+        function triggerGameOver(hitText, causeDetail) {
+            isGameOver = true;
+            clearAllTimers();
+            playSE('bad');
+            const timeStr = `${elapsedSeconds}秒`;
+            const diffNames = { easy: "🌱かんたん", normal: "⚡ふつう", hard: "🔥むずかしい", oni: "👹大発生", kami: "⚡伝説の農家" };
+            saveScore(score, timeStr, diffNames[currentDifficulty]);
+
+            document.getElementById('modal-title').innerText = "⚠️ 食害が発生しました！";
+            document.getElementById('modal-title').style.color = "#ef4444";
+            modalRankBadge.innerText = `獲得称号: ${getRankTitle(score)}`;
+            hitObjectDisplay.className = "hit-bad-badge";
+            hitObjectDisplay.innerHTML = `💥 遭遇した害虫: 【 ${hitText} 】`;
+            document.getElementById('modal-detail').innerHTML = `<b>生存時間: ${timeStr} | 最終スコア: ${score}点</b><br><br><strong>【害虫の解説と防除方法】</strong><br>${causeDetail.replace(/\n/g, '<br>')}`;
+            modal.style.display = 'flex';
+        }
+
+        function triggerGameClear() {
+            isGameOver = true;
+            clearAllTimers();
+            playSE('good');
+            const timeStr = "30秒（完走）";
+            const diffNames = { easy: "🌱かんたん", normal: "⚡ふつう", hard: "🔥むずかしい", oni: "👹大発生", kami: "⚡伝説の農家" };
+            saveScore(score, timeStr, diffNames[currentDifficulty]);
+
+            document.getElementById('modal-title').innerText = "🎉 無事に収穫達成！ GAME CLEAR！";
+            document.getElementById('modal-title').style.color = "#22c55e";
+            modalRankBadge.innerText = `最終称号: ${getRankTitle(score)}`;
+            hitObjectDisplay.className = "hit-clear-badge";
+            hitObjectDisplay.innerHTML = `✨ 祝！30秒間害虫被害なしで完走！`;
+            document.getElementById('modal-detail').innerHTML = `<b>最終スコア: ${score} 点</b><br><br>適切な知識と素早い判断力で見事害虫の被害を防ぎ切りました！優秀な農家の誕生です！`;
+            modal.style.display = 'flex';
+        }
+
+        function checkAABB(a, b, insetX = 0, insetY = 0) {
+            return (a.x + insetX < b.x + b.w - insetX && a.x + a.w - insetX > b.x + insetX && a.y + insetY < b.y + b.h - insetY && a.y + a.h - insetY > b.y + insetY);
+        }
+
+        function renderPosition(obj, isPlayer = false) {
+            const topY = 380 - obj.y - obj.h;
+            if (isPlayer) {
+                obj.element.style.transform = `translate3d(${obj.x}px, ${topY}px, 0) scaleX(${player.facingRight ? 1 : -1})`;
+            } else {
+                obj.element.style.transform = `translate3d(${obj.x}px, ${topY}px, 0)`;
+            }
+        }
+
+        function update() {
+            if (isGameOver || !isGameStarted || isPaused) return;
+
+            player.vx = 0;
+            if (keys['ArrowLeft'] || keys['KeyA']) { player.vx = -MOVE_SPEED; player.facingRight = false; }
+            if (keys['ArrowRight'] || keys['KeyD']) { player.vx = MOVE_SPEED; player.facingRight = true; }
+
+            if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && player.isGrounded) {
+                player.vy = JUMP_POWER;
+                player.isGrounded = false;
+                playSE('jump');
+            }
+
+            player.vy -= GRAVITY;
+            player.x += player.vx;
+            if (player.x < 0) player.x = 0;
+            if (player.x > 800 - player.w) player.x = 800 - player.w;
+
+            let steps = Math.ceil(Math.abs(player.vy) / 4) || 1;
+            let stepY = player.vy / steps;
+            
+            for (let s = 0; s < steps; s++) {
+                player.y += stepY;
+
+                if (player.y <= 40) {
+                    player.y = 40;
+                    player.vy = 0;
+                    player.isGrounded = true;
+                    break;
+                }
+
+                for (let b of blocks) {
+                    if (checkAABB(player, b, 2, 0)) {
+                        if (stepY <= 0 && (player.y - stepY) >= b.y + b.h - 8) {
+                            player.y = b.y + b.h;
+                            player.vy = 0;
+                            player.isGrounded = true;
+                            s = steps;
+                            break;
+                        } else if (stepY > 0 && (player.y + player.h - stepY) <= b.y + 8) {
+                            player.y = b.y - player.h;
+                            player.vy = 0;
+                            s = steps;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const b = blocks[i];
+                b.x -= scrollSpeed;
+                renderPosition(b);
+
+                if (b.x < -60) {
+                    b.element.remove();
+                    blocks.splice(i, 1);
+                    continue;
+                }
+
+                if (checkAABB(player, b, 0, 2)) {
+                    if (Math.abs(player.y - (b.y + b.h)) < 2) {
+                        player.x -= scrollSpeed;
+                    } else if (player.x < b.x) {
+                        player.x = b.x - player.w;
+                    }
+                }
+            }
+
+            renderPosition({ ...player, element: playerEl }, true);
+
+            for (let i = entities.length - 1; i >= 0; i--) {
+                const e = entities[i];
+                e.x -= scrollSpeed;
+                renderPosition(e);
+
+                if (checkAABB(player, e, 6, 4)) {
+                    if (e.isBad) {
+                        triggerGameOver(e.textName, e.detail);
+                        return;
+                    } else {
+                        score += 30;
+                        scoreDisplay.innerText = score;
+                        updateRank();
+                        playSE('good');
+                        e.element.remove();
+                        entities.splice(i, 1);
+                    }
+                    continue;
+                }
+
+                if (e.x < -e.w) {
+                    if (e.isBad) {
+                        score += 10;
+                        scoreDisplay.innerText = score;
+                        updateRank();
+                    }
+                    e.element.remove();
+                    entities.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+    </script>
+</body>
+</html>
